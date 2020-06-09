@@ -1,0 +1,34 @@
+<!DOCTYPE html> 
+<html> 
+  
+<head> 
+    <title>Home Page</title> 
+</head> 
+  
+<body> 
+
+    <title>Home Page</title> 
+    <h2>My URL Shortener</h2>
+
+    <form action="/post" method="POST">
+      <label for="page_name">Web Page:</label><br>
+      <input type="text" id="page_name" name="page_name" value=""><br>
+      <input type="submit" value="Submit">
+    </form> 
+    <br><br>
+    <form action="/trending" method="GET">
+    Latest trends
+        <button name="Trends" type="submit" value="trends">Show Trends</button>
+    </form>
+
+    <form action="/getall" method="GET">
+    My shortlinks
+        <button name="Trends" type="submit" value="trends">My Links</button>
+    </form> 
+    <br>
+    Generated shortlink for <%=incomingData.Value%> <br> 
+    <a href="https://juddj1np0k.execute-api.us-west-2.amazonaws.com/prod-lr/<%=incomingData.Key%>">https://juddj1np0k.execute-api.us-west-2.amazonaws.com/prod-lr/<%=incomingData.Key%>
+
+</body> 
+  
+</html>     

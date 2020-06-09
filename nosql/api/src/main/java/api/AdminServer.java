@@ -90,6 +90,18 @@ public class AdminServer extends Application {
 		}
 	}
 
+    private static boolean isTargetOrReplica(String key, int node) {
+    	int target = (key.hashCode()%5) + 1;
+    	if (target == node) return true;
+
+    	for (int i = (target+1)%5 , count = 0; count < 2; i = (i+1)%5, count++) {
+            if (i == node) {
+            	return true;
+            }
+        }
+        return false;
+
+    }
 	public static void syncDocument(String key, String command) {
 
 		try {
@@ -102,39 +114,39 @@ public class AdminServer extends Application {
 							+ " index:" + Integer.toString(my_index) + "]" + Arrays.deepToString(syncObject.vclock));
 			switch (my_index) {
 			case 1:
-				// node1_sync_queue.add( syncObject ) ;
-				node2_sync_queue.add(syncObject);
-				node3_sync_queue.add(syncObject);
-				node4_sync_queue.add(syncObject);
-				node5_sync_queue.add(syncObject);
+				// if (isTargetOrReplica(key, 1)) node1_sync_queue.add( syncObject ) ;
+				if (isTargetOrReplica(key, 2)) node2_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 3)) node3_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 4)) node4_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 5)) node5_sync_queue.add(syncObject);
 				break;
 			case 2:
-				node1_sync_queue.add(syncObject);
-				// node2_sync_queue.add( syncObject ) ;
-				node3_sync_queue.add(syncObject);
-				node4_sync_queue.add(syncObject);
-				node5_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 1)) node1_sync_queue.add( syncObject ) ;
+				//if (isTargetOrReplica(key, 2)) node2_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 3)) node3_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 4)) node4_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 5)) node5_sync_queue.add(syncObject);
 				break;
 			case 3:
-				node1_sync_queue.add(syncObject);
-				node2_sync_queue.add(syncObject);
-				// node3_sync_queue.add( syncObject ) ;
-				node4_sync_queue.add(syncObject);
-				node5_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 1)) node1_sync_queue.add( syncObject ) ;
+				if (isTargetOrReplica(key, 2)) node2_sync_queue.add(syncObject);
+				//if (isTargetOrReplica(key, 3)) node3_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 4)) node4_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 5)) node5_sync_queue.add(syncObject);
 				break;
 			case 4:
-				node1_sync_queue.add(syncObject);
-				node2_sync_queue.add(syncObject);
-				node3_sync_queue.add(syncObject);
-				// node4_sync_queue.add( syncObject ) ;
-				node5_sync_queue.add(syncObject);
+			    if (isTargetOrReplica(key, 1)) node1_sync_queue.add( syncObject ) ;
+				if (isTargetOrReplica(key, 2)) node2_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 3)) node3_sync_queue.add(syncObject);
+				//if (isTargetOrReplica(key, 4)) node4_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 5)) node5_sync_queue.add(syncObject);
 				break;
 			case 5:
-				node1_sync_queue.add(syncObject);
-				node2_sync_queue.add(syncObject);
-				node3_sync_queue.add(syncObject);
-				node4_sync_queue.add(syncObject);
-				// node5_sync_queue.add( syncObject ) ;
+				if (isTargetOrReplica(key, 1)) node1_sync_queue.add( syncObject ) ;
+				if (isTargetOrReplica(key, 2)) node2_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 3)) node3_sync_queue.add(syncObject);
+				if (isTargetOrReplica(key, 4)) node4_sync_queue.add(syncObject);
+				//if (isTargetOrReplica(key, 5)) node5_sync_queue.add(syncObject);
 				break;
 			}
 
@@ -165,12 +177,14 @@ public class AdminServer extends Application {
 		return resource;
 	}
 	
-	public static ClientResource getForwardingClient(int leaderNodeIndex, String urlpath) {
+	
+	//this stays the same, substitute leaderNodeIndex with targetIndex
+	public static ClientResource getForwardingClient(int targetNodeIndex, String urlpath) {
 		
 		//Change this to sync with leader node at its app server port (9001-9005)
-		String leaderNode = nodeNameFromIndex(leaderNodeIndex);
+		String targetNode = nodeNameFromIndex(targetNodeIndex);
 		
-		String URL = "http://" + leaderNode + ":9090" + urlpath;
+		String URL = "http://" + targetNode + ":9090" + urlpath;
 		System.out.println( "Forwarding request to " + URL ) ;
 		ClientResource resource = new ClientResource(URL);
 		/*
@@ -360,6 +374,13 @@ public class AdminServer extends Application {
 		return node.status.equals("up");
 	}
 	
+	public boolean isNodeUp(int nodeIndex) {
+		String nodeName = nodeNameFromIndex(nodeIndex);
+		String n_id = nodesNameToId.get(nodeName);
+		Node node = nodes.get(n_id);
+		return node.status.equals("up");
+	}
+	
 
 	public int getLeaderNodeIndex() {
 		return leaderNodeIndex;
@@ -391,6 +412,16 @@ public class AdminServer extends Application {
 	public void setMyNodeIndex(int myNodeIndex) {
 		this.myNodeIndex = myNodeIndex;
 	}
+
+	public int getNodeIdForKey(String key) {
+        int keyNum = Math.abs(key.hashCode()) ;
+        return (keyNum % 5) + 1;
+    }
+    
+    public int getNextNode(int nodeIndex) {
+        return (nodeIndex + 1) % 5;
+    }
+
 
 
 }

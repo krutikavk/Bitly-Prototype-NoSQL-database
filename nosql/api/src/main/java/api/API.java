@@ -180,7 +180,21 @@ public class API implements Runnable {
             String my_host = server.getMyHostname() ;
             int my_index = server.nodeIndex( my_host ) ;
             int incoming_index = server.nodeIndex(vclock[0]);
-            
+                        
+            int targetNode = server.getNodeIdForKey(key);
+
+            boolean amIReplica = false, amITarget = false;
+            amITarget = (targetNode == server.getMyNodeIndex());
+            if (!amITarget) { 
+                for (int i = server.getNextNode(targetNode) , count = 0; count < 2; i = server.getNextNode(i), count++) {
+                    if (i == server.getMyNodeIndex()) {
+                        amIReplica = true;
+                        break;
+                    }
+                }
+            }
+            assert(!amITarget || !amIReplica);
+
             SM db = SMFactory.getInstance() ;
             SM.OID record_id  ;
             SM.Record record  ;
@@ -444,7 +458,6 @@ public class API implements Runnable {
     }
 
     
-    //Check for tombstone behavior--caller will do that
     public static void update_document( String key, String value ) throws DocumentException {
     	System.out.println( "Get Document to update: " + key ) ;
     	Document doc = KEYMAP_CACHE.get( key ) ;
@@ -493,44 +506,7 @@ public class API implements Runnable {
         }
     }
 
-    
-    /* Original delete-Document without tombstone
-    public static void delete_document( String key ) throws DocumentException {
-    	System.out.println( "Delete Document: " + key ) ;
-    	Document doc = KEYMAP_CACHE.get( key ) ;
-    	if ( doc == null || doc.record == null )
-    		throw new DocumentException( "Document Not Found: " + key ) ;
-    	String record_key = doc.record ;
-    	SM db = SMFactory.getInstance() ;
-        SM.Record found ;
-        SM.Record record ;     
-		SM.OID record_id = db.getOID( record_key.getBytes() ) ;
-       	try {
-       		//Sync delete before the document is deleted!! else we're trying to sync (get document) after its already removed!
-            //db.delete( record_id ) ;
-       		//doc.vclock[0] = AdminServer.getInstance().getMyHostname(); --> now done in updateVClockForDelete function
-       		
-       		//Increment vclock, make current node owner of updated vclock  
-       		updateVClockForDelete(doc.getVclock());
-       		//Set tombstone to true
-       		doc.setTombstone(true);
-       		
-            AdminServer.syncDocument( key, "delete" ) ; 
-            db.delete( record_id ) ;
-            // remove key map
-            KEYMAP_CACHE.remove( key ) ;
-			System.out.println( "Document Deleted: " + key ) ;
-        } catch (SM.NotFoundException nfe) {
-           throw new DocumentException( "Document Not Found: " + key ) ;
-        } catch (Exception e) {
-         	throw new DocumentException( e.toString() ) ;            
-        }		
-    }
-    
-    */
-    
-    
-    //New delete_document with tombstone functionality
+
     public static void delete_document( String key ) throws DocumentException {
     	System.out.println( "Delete Document: " + key ) ;
     	Document doc = KEYMAP_CACHE.get( key ) ;
@@ -590,7 +566,6 @@ public class API implements Runnable {
     	return doc.isTombstone();
     	
     }
-    
 
 }
 

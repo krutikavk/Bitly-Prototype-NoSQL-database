@@ -21,27 +21,69 @@ public class APIResource extends ServerResource {
     	
     	AdminServer server = AdminServer.getInstance();
     	
-    	//If you're not the leader 
-    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
-    		//Forward to leader 
-    		String urlpath = getRequest().getResourceRef().getPath();
-    		System.out.println("URL path sent from App server: " + urlpath);
-    		
-    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
-    		return forwarding.post(rep, MediaType.APPLICATION_JSON);
-    	}
     	
-
-    	//Perform post operation as normal if you're the leader
     	String doc_key = getAttribute("key") ;
-    	//There is no key mentioned in the post request
+    	
+    	
+    	//I am the target node for the key
     	if ( doc_key == null || doc_key.equals("") ) {
             setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
             Status status = new Status() ;
             status.status = "Error!" ;
             status.message = "Missing Document Key." ;
             return new JacksonRepresentation<Status>(status) ;
+            
         } else {
+        	
+        	int targetNode = getNodeIdForKey(doc_key);
+        	
+        	System.out.println("target node: " + targetNode);
+            boolean amIReplica = false, amITarget = false;
+            amITarget = (targetNode == server.getMyNodeIndex());
+            if (!amITarget) { 
+                for (int i = getNextNode(targetNode) , count = 0; count < 2; i = getNextNode(i), count++) {
+                    if (i == server.getMyNodeIndex()) {
+                        amIReplica = true;
+                        break;
+                    }
+                }
+            }
+        	
+        	if(!amITarget && !amIReplica) {
+
+        		//If I am not the node index, forward to correct node and return response to client
+                int target = 0;
+                for(int i = targetNode, count = 0; count < 3; i++, count++) {
+                    if (server.isNodeUp(i)) {
+                        target = i;
+                        break;
+                    }
+                }
+        		if(target != 0) {
+	        		String urlpath = getRequest().getResourceRef().getPath();
+	        		ClientResource forwarding = AdminServer.getForwardingClient(target, urlpath);
+	        		return forwarding.post(rep, MediaType.APPLICATION_JSON);
+        		} else {
+        			
+        			setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
+    	            Status status = new Status() ;
+    	            status.status = "Error!" ;
+    	            status.message = "No available nodes";      	
+    	            return new JacksonRepresentation<Status>(status) ;
+        		}
+        		
+        	}
+
+            //I am one of the replicas, lets try to forward this request to target if it is still up
+            if (!amITarget &&
+                amIReplica) {
+                    if (server.isNodeUp(targetNode)) {
+                        String urlpath = getRequest().getResourceRef().getPath();
+                        ClientResource forwarding = AdminServer.getForwardingClient(targetNode, urlpath);
+                        return forwarding.post(rep, MediaType.APPLICATION_JSON);
+                    }    
+
+            }
         	
             try {
             	//Document exists
@@ -118,8 +160,63 @@ public class APIResource extends ServerResource {
     		return new JacksonRepresentation<Document[]>(API.get_hashmap()) ;  
         } else {
         	try {
-        		//Document exists
-        		String doc = API.get_document( doc_key ) ;	
+        		
+        		//-----------------------CH part------------------------
+        		
+        		AdminServer server = AdminServer.getInstance();
+            	int targetNode = getNodeIdForKey(doc_key);
+            	
+            	System.out.println("target node: " + targetNode);
+                boolean amIReplica = false, amITarget = false;
+                amITarget = (targetNode == server.getMyNodeIndex());
+                if (!amITarget) { 
+                    for (int i = getNextNode(targetNode) , count = 0; count < 2; i = getNextNode(i), count++) {
+                        if (i == server.getMyNodeIndex()) {
+                            amIReplica = true;
+                            break;
+                        }
+                    }
+                }
+            
+                if(!amITarget && !amIReplica) {
+
+                //If I am not the node index, forward to correct node and return response to client
+                    int target = 0;
+                    for(int i = targetNode, count = 0; count < 3; i++, count++) {
+                        if (server.isNodeUp(i)) {
+                            target = i;
+                            break;
+                        }
+                    }
+                    if(target != 0) {
+                        String urlpath = getRequest().getResourceRef().getPath();
+                        ClientResource forwarding = AdminServer.getForwardingClient(target, urlpath);
+                        return forwarding.get(MediaType.APPLICATION_JSON);
+                    } else {
+                    
+                        setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
+                        Status status = new Status() ;
+                        status.status = "Error!" ;
+                        status.message = "No available nodes";          
+                        return new JacksonRepresentation<Status>(status) ;
+                    }
+                }
+
+                //I am one of the replicas, lets try to forward this request to target if it is still up
+                if (!amITarget &&
+                    amIReplica) {
+                    if (server.isNodeUp(targetNode)) {
+                        String urlpath = getRequest().getResourceRef().getPath();
+                        ClientResource forwarding = AdminServer.getForwardingClient(targetNode, urlpath);
+                        return forwarding.get(MediaType.APPLICATION_JSON);
+                    }
+                }
+
+        		//-----------------------------------------------
+            	
+            	//Document exists
+        		String doc = API.get_document( doc_key ) ;
+            	
         		//Check for tombstone 
         		if(API.checkDocForTombstone(doc_key))
                 {
@@ -154,17 +251,6 @@ public class APIResource extends ServerResource {
     public Representation update_action (Representation rep) throws IOException {
     	
     	AdminServer server = AdminServer.getInstance();
-    	
-    	//If you're not the leader 
-    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
-    		//Forward to leader 
-    		String urlpath = getRequest().getResourceRef().getPath();
-    		System.out.println("URL path sent from App server: " + urlpath);
-    		
-    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
-    		return forwarding.put(rep, MediaType.APPLICATION_JSON);
-    	}
-    	
     	String doc_key = getAttribute("key") ;
     	
     	if ( doc_key == null || doc_key.equals("") ) {
@@ -176,7 +262,57 @@ public class APIResource extends ServerResource {
             return new JacksonRepresentation<Status>(status) ;
             
         } else {
-        	
+            int targetNode = getNodeIdForKey(doc_key);
+            
+            System.out.println("target node: " + targetNode);
+            boolean amIReplica = false, amITarget = false;
+            amITarget = (targetNode == server.getMyNodeIndex());
+            if (!amITarget) { 
+                for (int i = getNextNode(targetNode) , count = 0; count < 2; i = getNextNode(i), count++) {
+                    if (i == server.getMyNodeIndex()) {
+                        amIReplica = true;
+                        break;
+                    }
+                }
+            }
+            
+            if(!amITarget && !amIReplica) {
+
+                //If I am not the node index, forward to correct node and return response to client
+                int target = 0;
+                for(int i = targetNode, count = 0; count < 3; i++, count++) {
+                    if (server.isNodeUp(i)) {
+                        target = i;
+                        break;
+                    }
+                }
+                if(target != 0) {
+                    String urlpath = getRequest().getResourceRef().getPath();
+                    ClientResource forwarding = AdminServer.getForwardingClient(target, urlpath);
+                    return forwarding.put(rep, MediaType.APPLICATION_JSON);
+            } else {
+                    
+                    setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
+                    Status status = new Status() ;
+                    status.status = "Error!" ;
+                    status.message = "No available nodes";       
+                    return new JacksonRepresentation<Status>(status) ;
+                }
+                
+            }
+
+            //I am one of the replicas, lets try to forward this request to target if it is still up
+            if (!amITarget &&
+                amIReplica) {
+                if (server.isNodeUp(targetNode)) {
+                    String urlpath = getRequest().getResourceRef().getPath();
+                    ClientResource forwarding = AdminServer.getForwardingClient(targetNode, urlpath);
+                    return forwarding.put(rep, MediaType.APPLICATION_JSON);
+                }
+            }
+
+
+
         	JsonRepresentation represent = new JsonRepresentation(rep);
             JSONObject jsonobject = represent.getJsonObject();
             String doc_json = jsonobject.toString();
@@ -224,26 +360,65 @@ public class APIResource extends ServerResource {
     public Representation delete_action (Representation rep) throws IOException {
     	
     	AdminServer server = AdminServer.getInstance();
-    	
-    	//If you're not the leader 
-    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
-    		//Forward to leader 
-    		String urlpath = getRequest().getResourceRef().getPath();
-    		System.out.println("URL path sent from App server: " + urlpath);
-    		
-    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
-    		return forwarding.delete();
-    	}
-    	
     	String doc_key = getAttribute("key") ;
+    	
+    	
     	if ( doc_key == null || doc_key.equals("") ) {
+    		
             setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
             Status status = new Status() ;
             status.status = "Error!" ;
             status.message = "Missing Document Key." ;
             return new JacksonRepresentation<Status>(status) ;
+            
         } else {
-        	
+            int targetNode = getNodeIdForKey(doc_key);
+            
+            System.out.println("target node: " + targetNode);
+            boolean amIReplica = false, amITarget = false;
+            amITarget = (targetNode == server.getMyNodeIndex());
+            if (!amITarget) { 
+                for (int i = getNextNode(targetNode) , count = 0; count < 2; i = getNextNode(i), count++) {
+                    if (i == server.getMyNodeIndex()) {
+                        amIReplica = true;
+                        break;
+                    }
+                }
+            }
+            
+            if(!amITarget && !amIReplica) {
+
+                //If I am not the node index, forward to correct node and return response to client
+                int target = 0;
+                for(int i = targetNode, count = 0; count < 3; i++, count++) {
+                    if (server.isNodeUp(i)) {
+                        target = i;
+                        break;
+                    }
+                }
+                if(target != 0) {
+                    String urlpath = getRequest().getResourceRef().getPath();
+                    ClientResource forwarding = AdminServer.getForwardingClient(target, urlpath);
+                    return forwarding.delete(); 
+               } else {                
+                    setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;
+                    Status status = new Status() ;
+                    status.status = "Error!" ;
+                    status.message = "No available nodes";       
+                    return new JacksonRepresentation<Status>(status) ;
+                }
+                
+            }
+            //I am one of the replicas, lets try to forward this request to target if it is still up
+            if (!amITarget &&
+                amIReplica) {
+                if (server.isNodeUp(targetNode)) {
+                    String urlpath = getRequest().getResourceRef().getPath();
+                    ClientResource forwarding = AdminServer.getForwardingClient(targetNode, urlpath);
+                    return forwarding.delete(); 
+                }
+            }
+
         	
         	try {
             	//Document exists
@@ -283,5 +458,17 @@ public class APIResource extends ServerResource {
             }	
 		}
     }
+    
+    
+    //Hashing function for incoming keys
+    public int getNodeIdForKey(String key) {
+    	int keyNum = Math.abs(key.hashCode());
+    	return (keyNum % 5) + 1;
+    }
+    
+    public int getNextNode(int nodeIndex) {
+    	return (nodeIndex + 1) % 5;
+    }
+    
 }
 

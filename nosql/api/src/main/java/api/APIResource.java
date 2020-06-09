@@ -17,6 +17,22 @@ public class APIResource extends ServerResource {
 
     @Post
     public Representation post_action (Representation rep) throws IOException {
+    	
+    	
+    	AdminServer server = AdminServer.getInstance();
+    	
+    	//If you're not the leader 
+    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
+    		//Forward to leader 
+    		String urlpath = getRequest().getResourceRef().getPath();
+    		System.out.println("URL path sent from App server: " + urlpath);
+    		
+    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
+    		return forwarding.post(rep, MediaType.APPLICATION_JSON);
+    	}
+    	
+
+    	//Perform post operation as normal if you're the leader
     	String doc_key = getAttribute("key") ;
     	//There is no key mentioned in the post request
     	if ( doc_key == null || doc_key.equals("") ) {
@@ -136,6 +152,19 @@ public class APIResource extends ServerResource {
    
     @Put
     public Representation update_action (Representation rep) throws IOException {
+    	
+    	AdminServer server = AdminServer.getInstance();
+    	
+    	//If you're not the leader 
+    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
+    		//Forward to leader 
+    		String urlpath = getRequest().getResourceRef().getPath();
+    		System.out.println("URL path sent from App server: " + urlpath);
+    		
+    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
+    		return forwarding.put(rep, MediaType.APPLICATION_JSON);
+    	}
+    	
     	String doc_key = getAttribute("key") ;
     	
     	if ( doc_key == null || doc_key.equals("") ) {
@@ -187,14 +216,25 @@ public class APIResource extends ServerResource {
             	status.status = "Server Error!" ;
             	status.message = e.toString() ;
             	return new JacksonRepresentation<Status>(status); 
-            }
-            
-
+            }  
 		}
     }
 
     @Delete
     public Representation delete_action (Representation rep) throws IOException {
+    	
+    	AdminServer server = AdminServer.getInstance();
+    	
+    	//If you're not the leader 
+    	if(server.getLeaderNodeIndex() != server.getMyNodeIndex()) {
+    		//Forward to leader 
+    		String urlpath = getRequest().getResourceRef().getPath();
+    		System.out.println("URL path sent from App server: " + urlpath);
+    		
+    		ClientResource forwarding = AdminServer.getForwardingClient(server.getLeaderNodeIndex(), urlpath);
+    		return forwarding.delete();
+    	}
+    	
     	String doc_key = getAttribute("key") ;
     	if ( doc_key == null || doc_key.equals("") ) {
             setStatus( org.restlet.data.Status.CLIENT_ERROR_BAD_REQUEST ) ;

@@ -3,6 +3,7 @@ package api ;
 import nojava.* ;
 import java.util.Map ;
 
+//Test Commit-CP mode
 public class Main {
 
 	private static SM db ;

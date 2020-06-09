@@ -1,4 +1,5 @@
-# NoSQL vClock Project
+# NoSQL vClock Project--GENERAL FUNCTIONING AP MODE
+(Refer bitly/README.md for additional features in CP mode operation)
 
 This project is a simulation of vlocks implementation in an AP database. 
 

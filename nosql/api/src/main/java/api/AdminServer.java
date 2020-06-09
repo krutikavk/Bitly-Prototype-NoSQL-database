@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 
 public class AdminServer extends Application {
 
@@ -38,6 +39,9 @@ public class AdminServer extends Application {
 	private ConcurrentHashMap<String, ClientResource> clients = new ConcurrentHashMap<String, ClientResource>();
 	private String my_ip = "";
 	private String my_host = "";
+	
+	private int leaderNodeIndex; 
+	private int myNodeIndex;
 
 	// Main create an instance (new for the first time0
 	public synchronized static AdminServer getInstance() {
@@ -66,6 +70,8 @@ public class AdminServer extends Application {
 			node3_sync_queue = new ConcurrentLinkedQueue<SyncRequest>();
 			node4_sync_queue = new ConcurrentLinkedQueue<SyncRequest>();
 			node5_sync_queue = new ConcurrentLinkedQueue<SyncRequest>();
+			
+			
 
 			// start Sync Threads to Sync Changes in cluster
 			Sync sync1 = new Sync("api_node_1", node1_sync_queue);
@@ -139,8 +145,33 @@ public class AdminServer extends Application {
 	}
 
 	public static ClientResource getSyncClient(String node) {
+		
+		//Change this to sync with leader node at its app server port (9001-9005)
 		String URL = "http://" + node + ":8888/sync";
-		// System.out.println( URL ) ;
+		System.out.println( URL ) ;
+		ClientResource resource = new ClientResource(URL);
+		/*
+		 * Create a Client with the socketTimout parameter for HttpClient and "attach"
+		 * it to the ClientResource.
+		 */
+		Context context = new Context();
+		context.getParameters().add("readTimeout", "1000");
+		context.getParameters().add("idleTimeout", "1000");
+		context.getParameters().add("socketTimeout", "1000");
+		context.getParameters().add("socketConnectTimeoutMs", "1000");
+		resource.setNext(new Client(context, Protocol.HTTP));
+		// Set the client to not retry on error. Default is true with 2 attempts.
+		resource.setRetryOnError(false);
+		return resource;
+	}
+	
+	public static ClientResource getForwardingClient(int leaderNodeIndex, String urlpath) {
+		
+		//Change this to sync with leader node at its app server port (9001-9005)
+		String leaderNode = nodeNameFromIndex(leaderNodeIndex);
+		
+		String URL = "http://" + leaderNode + ":9090" + urlpath;
+		System.out.println( "Forwarding request to " + URL ) ;
 		ClientResource resource = new ClientResource(URL);
 		/*
 		 * Create a Client with the socketTimout parameter for HttpClient and "attach"
@@ -176,6 +207,12 @@ public class AdminServer extends Application {
 			nodes.put(my_host, node);
 
 			nodesNameToId.put(node.name, node.id);
+			
+			//Start with node 1 as partition leader
+			setLeaderNodeIndex(1);
+			System.out.println("SETTING LEADER AS NODE 1");
+			
+			
 
 		} catch (Exception e) {
 			System.out.println(e);
@@ -215,6 +252,24 @@ public class AdminServer extends Application {
 
 	}
 
+	
+	public static String nodeNameFromIndex(int nodeIndex) {
+		switch(nodeIndex) {
+		case 1:
+			return "api_node_1";
+		case 2:
+			return "api_node_2";
+		case 3: 
+			return "api_node_3";
+		case 4:
+			return "api_node_4";
+		case 5:
+			return "api_node_5";
+		default:
+			return "";
+		}
+	}
+	
 	public void registerNode(String id, String name, String admin_port, String api_port) {
 		// register node name
 		Node node = new Node();
@@ -225,9 +280,15 @@ public class AdminServer extends Application {
 		nodes.put(id, node);
 		nodesNameToId.put(name, id);
 		// System.out.println( "Register Node: " + id + " as: " + name ) ;
+		
+		if(node.id.contentEquals(my_host)) {
+			//System.out.println("*******My node");
+			setMyNodeIndex(nodeIndex(id));
+		}
+		
+		//System.out.println("*****" + node.id + " " + my_host + " " + node.name + " " + nodeIndex(id) + " " + getMyNodeIndex());
 
-		System.out.println(
-				"Register Node: " + id + " as: " + name + " admin port: " + admin_port + " api port: " + api_port);
+		System.out.println("Register Node: " + id + " as: " + name + " admin port: " + admin_port + " api port: " + api_port);
 
 	}
 
@@ -238,12 +299,49 @@ public class AdminServer extends Application {
 	public void nodeUp(String id) {
 		Node node = nodes.get(id);
 		node.status = "up";
+		
+		//Node is up, check if new leader is appointed--Lowest id will be the winner
+		//Only check with the leader--if my node ID is lower, I'll be the new leader
+		//System.out.println("nodeIndex(id) " + nodeIndex(id));
+		//System.out.println("getLeaderNode()" + getLeaderNode());
+		
+		
+		if(nodeIndex(id) < getLeaderNodeIndex()) {
+			System.out.println("NODE " + nodeIndex(id) + " UP : NEW PARTITION LEADER");
+			setLeaderNodeIndex(nodeIndex(id));
+		}
+		
 	}
 
 	public void nodeDown(String id) {
 		Node node = nodes.get(id);
 		node.status = "down";
+		int leaderIndex = 6;
+		//Reevaluate partition leader
+		//Find lowest node number that is up for leader selection
+		for(Map.Entry<String, Node> it : nodes.entrySet()){ 
+
+			int index = nodeIndex(it.getKey());
+			String status = getStatus(it.getKey());
+			
+			//partition1: 2 selects itself as the leader/1 selects itself as the leader
+			if(index < leaderIndex && (status.equals("up") || status.contentEquals("self")))
+			{
+				leaderIndex = index;
+			}
+			
+		}
+
+
+		if(leaderIndex < 6) {
+			if(getLeaderNodeIndex() != leaderIndex)
+				System.out.println("NEW LEADER IS: " + leaderIndex ); 
+			setLeaderNodeIndex(leaderIndex);
+			
+		}
+		
 	}
+	
 
 	public void nodeSelf(String id) {
 		Node node = nodes.get(id);
@@ -261,6 +359,20 @@ public class AdminServer extends Application {
 		Node node = nodes.get(n_id);
 		return node.status.equals("up");
 	}
+	
+
+	public int getLeaderNodeIndex() {
+		return leaderNodeIndex;
+	}
+
+	public void setLeaderNodeIndex(int leaderNodeIndex) {
+		this.leaderNodeIndex = leaderNodeIndex;
+	}
+	
+	//Dont need this
+	public int selectLeaderNode() {
+		return 1;
+	}
 
 	@Override
 	public Restlet createInboundRoot() {
@@ -271,5 +383,14 @@ public class AdminServer extends Application {
 		router.attach("/sync/{key}", SyncResource.class);
 		return router;
 	}
+
+	public int getMyNodeIndex() {
+		return myNodeIndex;
+	}
+
+	public void setMyNodeIndex(int myNodeIndex) {
+		this.myNodeIndex = myNodeIndex;
+	}
+
 
 }

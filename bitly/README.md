@@ -32,7 +32,7 @@ API endpoints for each:
 ## Link Redirect Servers
 Link Redirect server exposes REST methods for the frontend to redirect to required website using newly created or existing shortlinks. Link redirect module is autoscaled and load balanced between 1-3 instances based on CPU utilization.
 API Endpoints exposed:
-1. /ping
+1. / : Redirect to the shortened URL
 
 
 ## Trend Server

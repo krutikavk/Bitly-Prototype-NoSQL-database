@@ -23,26 +23,17 @@ There are 2 exchanges on RabbitMQ running on an Amazon EC2 instance
 ## Control Panel Servers
 Control Panel server exposes REST methods for the frontend for a user to generate a new short-link, view trending shortlinks, and to view all created shortlinks. Control panel module is autoscaled and load balanced between 1-3 instances based on CPU utilization.
 API endpoints for each:
-1. /ping 
-   Request: 
-   Response: 
-2. /post
-   Request: 
-   Response:
-3. /trending
-   Request:
-   Response: 
-4. /getall
-   Request:
-   Response:
- 
+1. /ping: Home page
+2. /post: Request a new short link
+3. /trending: Get trending shortlinks (top 10)
+4. /getall: Get all short links created
 
 
 ## Link Redirect Servers
 Link Redirect server exposes REST methods for the frontend to redirect to required website using newly created or existing shortlinks. Link redirect module is autoscaled and load balanced between 1-3 instances based on CPU utilization.
 API Endpoints exposed:
 1. /ping
-2. /
+
 
 ## Trend Server
 Trend server interfaces with the main database and the NoSQL database cluster. It will write to main database and NoSQL cluster when new short links are created. When a redirect is requested to link redirect, trend server will also update trends for the link inside the database.

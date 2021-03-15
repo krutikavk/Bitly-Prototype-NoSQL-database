@@ -1,8 +1,16 @@
 
 # BITLY CLONE
 
-Components: Control Panel, Link Redirect, Trend Server, RabbitMQ, NoSQL cluster, RDS
-CP, LR, TS all are Go Rest APIs.
+THis project implements a prototype of a URL shortening service like Bitly with emphasis on designing, building, and deploying 4-tier, multi-tenant, micro-service architeccture. Main components of the system are: Control Panel, Link Redirect, Trend Server, Messaging service, NoSQL cluster, RDS.
+
+1. Control Panel (CP): Generate shortlinks
+2. Link Redirect (LR): Redirect to website using existing shortlinks
+3. Trend Server (TS): Track top 10 hit shortlinks
+4. Messaging service (RabbitMQ pub-sub): Coordinate CP, LR, TS with databases
+5. NoSQL cluster: 5-node KV database at Bitly-Prototype-NoSQL-database/nosql for caching trending links
+6. RDS: Primary datastore
+
+CP, LR, TS all expose Restful APIs written in Go using Go Web Toolkit.
 
 Architecture diagram is available at Bitly-Prototype-NoSQL-database/bitly/Bitly_architecture.pdf
 
@@ -13,7 +21,7 @@ There are 2 exchanges on RabbitMQ running on an Amazon EC2 instance
    Publisher: Control Panel</br>
    Subscriber: Trend Server</br>
    </br>
-   As soon as a new shortlink is requested by a user, control panel generates a hashed base62-encoded shortlink and publishes   it to RabbitMQ. 
+   As soon as a new shortlink is requested by a user, control panel generates a hashed base62-encoded shortlink and publishes it to RabbitMQ. 
    Trend server consumes this message, processes it and saves it to the Main database inside AWS RDS. It also generates a POST request to the NoSQL cluster to saves the new link. This information will later be used by Link redirect server upon a redirection request.
    
 2. used_shortlink</br>
@@ -56,7 +64,7 @@ This serves as a main database strong a mapping of original URL to shortlinks ge
 2. Link Redirect Servers are auto scaled and load balanced with an internal Network ELB.
 
 ## Challenges in implementation
-1. Designing an architecture for the system based on the input constraints required was a great exercise in application of teh different service architectures discussed in beginning of the class. This service resembles a 4-service microservice architecture. 
+1. Designing an architecture for the system based on the input constraints required was a great exercise in learning application of different service architectures discussed in beginning of the class. This service resembles a 4-service microservice architecture. 
 2. Designing and implementing a CQRS messaging system for the backend servers to communicate on was a good challenge. It involved researching on RabbitMQ messaging models like work queues, simple queues, publish-subscribe. I selected the publish-subscribe as it seemed a good match for communication in the multi-layered system. I have also implemented a Remote procedure call using RabbitMQ when Control Panel API requests link trends.
 3. Concurrency programming in Golang initially looked a little different from other languages I have used, but turned out to be super elegant and simple to implement with the next module.
 

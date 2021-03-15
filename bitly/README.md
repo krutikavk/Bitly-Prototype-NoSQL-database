@@ -1,7 +1,7 @@
 
 # BITLY CLONE
 
-THis project implements a prototype of a URL shortening service like Bitly with emphasis on designing, building, and deploying 4-tier, multi-tenant, micro-service architeccture. Main components of the system are: Control Panel, Link Redirect, Trend Server, Messaging service, NoSQL cluster, RDS.
+This project implements a prototype of a URL shortening service like Bitly with emphasis on designing, building, and deploying 4-tier, multi-tenant, micro-service architeccture. Main components of the system are: Control Panel, Link Redirect, Trend Server, Messaging service, NoSQL cluster, RDS.
 
 1. Control Panel (CP): Generate shortlinks
 2. Link Redirect (LR): Redirect to website using existing shortlinks

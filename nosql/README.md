@@ -1,14 +1,24 @@
 # NoSQL vClock Project
 
-This project is a simulation of vlocks implementation in an AP database. 
+This project is a partial implementation of a 5-node NoSQL key-value database with focus on multi-version concurrency control (MVCC) using vector clocks in an AP database. An overview of the participants and their functionalities include: 
+1. 5 participating nodes
+2. Asynchronous worker queues for each node to send sync updates
+3. Sync updates dequeued only if node is up (partition tolerance) 
+5. Each node has an App server and Admin server
+   a. App server: receive CRUD requests and send to worker queues
+   b. Admin server: dequeue sync updates and check for node availability
+	
+Java Restlet is used to expose Restful APIs for each of these nodes for syncing (admin server) and readin/writing/deleting (app server) KV pairs from the database.
+
 
 
 ## High Level Steps
-I followed the following steps for adding required conflict detection and resolution to the existing startup code.
+Following functionalities have been impelmented:
 
-1. Added functionality to update and delete document information to Sync calls on ports 8xxx.
-2. Enhanced the syncing between nodes to dequeue from the sync queue only if a node is available. The updates for an unreachable node remain queued until the partition is resolved.
-3. Conflict Detection and Resolution implemented for the following scenarios:
+1. Nodes sync functionality
+2. Update and delete document information to Sync calls on ports 8xxx.
+3. Enhanced the syncing between nodes to dequeue from the sync queue only if a node is available. The updates for an unreachable node remain queued until the partition is resolved.
+4. Conflict Detection and Resolution implemented for the following scenarios:
   * API calls for PUT and DELETE calls on AdminServer
   * Sync on CREATE, UPDATE, DELETE calls on AppServer
   * Tombstones functionality added to track deleted document on each node

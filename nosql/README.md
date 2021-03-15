@@ -10,7 +10,13 @@ This project is a partial implementation of a 5-node NoSQL key-value database wi
 	
 Java Restlet is used to expose Restful APIs for each of these nodes for syncing (admin server) and readin/writing/deleting (app server) KV pairs from the database.
 
+## Addendum 
+2 additional branches of this main project also demonstrate 2 extra modes of operation:
+1. nosql_ch: Consistent hashing is implemented for AP mode of operation. In my implementation, a keyhash function is used to map to a particular node in the cluster called target node. Target node +1 and +2 serve as replicas on which the key is also stored. Create, update and delete actions are only handled by the primary node while read action can be performed at any of these.
 
+All the other nodes will attempt to forward any CRUD requests to the target node first based on hash value of the key. If target node is unavailable, read requests are forwarded to first available replica. If target node is unavailable, create, update, and delete requests generate an error.
+
+2. nosql_cp: CP mode of operation where a leader node is elected who will accept CREATE/UPDATE/DELETE requests and sync with other nodes while all nodes can service READ requests.
 
 ## High Level Steps
 Following functionalities have been impelmented:

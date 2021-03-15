@@ -4,7 +4,7 @@
 Components: Control Panel, Link Redirect, Trend Server, RabbitMQ, NoSQL cluster, RDS
 CP, LR, TS all are Go Rest APIs.
 
-Architecture diagram is available at 281-projects/bitly/Bitly_architecture.pdf
+Architecture diagram is available at Bitly-Prototype-NoSQL-database/bitly/Bitly_architecture.pdf
 
 ## Message Qeuing Service: RabbitMQ
 RabbitMQ is the central backbone of the system over which control panel, link redirect and trend servers communicate in a publish-subscribe model.
